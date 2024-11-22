@@ -22,6 +22,25 @@ class SimAMBasicBlock(nn.Module):
                 ConvLayer(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
                 NormLayer(self.expansion*planes)
             )
+        self._is_fused = False
+
+    def fuse_modules(self):
+        """
+        Fuse the kernels in-place.
+
+        Details:
+            This is an inference time optimization that fuses the batch normalization
+            parameters into the kernel of the convolutional layer. This is an in-place
+            operation. Subsequent calls to `fuse_modules` result in a silent No-Op.
+
+        """
+        if self._is_fused:  # Already fused, silent no-op
+            return
+        torch.quantization.fuse_modules(self, ['conv1', 'bn1'], inplace=True)
+        torch.quantization.fuse_modules(self, ['conv2', 'bn2'], inplace=True)
+        if len(self.downsample) == 2:
+            torch.quantization.fuse_modules(self.downsample, ['0', '1'], inplace=True)
+        self._is_fused = True
 
     def forward(self, x):
         out = self.relu(self.bn1(self.conv1(x)))
@@ -30,7 +49,7 @@ class SimAMBasicBlock(nn.Module):
         out += self.downsample(x)
         out = self.relu(out)
         return out
-    
+
     def SimAM(self,X,lambda_p=1e-4):
         n = X.shape[2] * X.shape[3]-1
         d = (X-X.mean(dim=[2,3], keepdim=True)).pow(2)
@@ -55,6 +74,25 @@ class BasicBlock(nn.Module):
                 ConvLayer(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
                 NormLayer(self.expansion*planes)
             )
+        self._is_fused = False
+
+    def fuse_modules(self):
+        """
+        Fuse the kernels in-place.
+
+        Details:
+            This is an inference time optimization that fuses the batch normalization
+            parameters into the kernel of the convolutional layer. This is an in-place
+            operation. Subsequent calls to `fuse_modules` result in a silent No-Op.
+
+        """
+        if self._is_fused:  # Already fused, silent no-op
+            return
+        torch.quantization.fuse_modules(self, ['conv1', 'bn1'], inplace=True)
+        torch.quantization.fuse_modules(self, ['conv2', 'bn2'], inplace=True)
+        if len(self.downsample) == 2:
+            torch.quantization.fuse_modules(self.downsample, ['0', '1'], inplace=True)
+        self._is_fused = True
 
     def forward(self, x):
         out = self.relu(self.bn1(self.conv1(x)))
@@ -85,6 +123,26 @@ class Bottleneck(nn.Module):
                           kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(self.expansion*planes)
             )
+        self._is_fused = False
+
+    def fuse_modules(self):
+        """
+        Fuse the kernels in-place.
+
+        Details:
+            This is an inference time optimization that fuses the batch normalization
+            parameters into the kernel of the convolutional layer. This is an in-place
+            operation. Subsequent calls to `fuse_modules` result in a silent No-Op.
+
+        """
+        if self._is_fused:  # Already fused, silent no-op
+            return
+        torch.quantization.fuse_modules(self, ['conv1', 'bn1'], inplace=True)
+        torch.quantization.fuse_modules(self, ['conv2', 'bn2'], inplace=True)
+        torch.quantization.fuse_modules(self, ['conv3', 'bn3'], inplace=True)
+        if len(self.shortcut) == 2:
+            torch.quantization.fuse_modules(self.shortcut, ['0', '1'], inplace=True)
+        self._is_fused = True
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
@@ -118,6 +176,22 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, in_planes*2, num_blocks[1], stride=2,block_id=2)
         self.layer3 = self._make_layer(block, in_planes*4, num_blocks[2], stride=2,block_id=3)
         self.layer4 = self._make_layer(block, in_planes*8, num_blocks[3], stride=2,block_id=4)
+        self._is_fused = False
+
+    def fuse_modules(self):
+        """
+        Fuse the kernels in-place.
+
+        Details:
+            This is an inference time optimization that fuses the batch normalization
+            parameters into the kernel of the convolutional layer. This is an in-place
+            operation. Subsequent calls to `fuse_modules` result in a silent No-Op.
+
+        """
+        if self._is_fused:  # Already fused, silent no-op
+            return
+        torch.quantization.fuse_modules(self, ['conv1', 'bn1'], inplace=True)
+        self._is_fused = True
 
     def _make_layer(self, block, planes, num_blocks, stride,block_id=1):
         strides = [stride] + [1]*(num_blocks-1)
